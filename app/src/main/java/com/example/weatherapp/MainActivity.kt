@@ -79,13 +79,9 @@ class MainActivity : AppCompatActivity() {
         IVSearch.setOnClickListener {
             var city: String = TECityLocation.text.toString()
 
-            loaddata.visibility = View.VISIBLE
-            homedata.visibility = View.GONE
-
             if (city.isEmpty()) {
                 Toast.makeText(this, "Please Enter City Name", Toast.LENGTH_SHORT).show()
             } else {
-                cityname.text = CityName
                 getWeatherInfo(city)
             }
         }
@@ -142,7 +138,6 @@ class MainActivity : AppCompatActivity() {
         fun getWeatherInfo(cityName: String) {
             var url: String =
                 "http://api.weatherapi.com/v1/forecast.json?key=e66803847543443fa01142645220703&q=${cityName}&days=1&aqi=yes&alerts=yes"
-            cityname.text = cityName
 
             val Queue = Volley.newRequestQueue(this)
 
@@ -154,6 +149,7 @@ class MainActivity : AppCompatActivity() {
 
                     try{
                         val temperature = response.getJSONObject("current").getString("temp_c")
+                        cityname.text = cityName
 
                         TVTemperature.text = temperature.plus("°C")
 
