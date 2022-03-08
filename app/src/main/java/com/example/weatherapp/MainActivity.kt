@@ -6,6 +6,7 @@ import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -43,7 +44,7 @@ class MainActivity : AppCompatActivity() {
 
         weatherRV = findViewById(R.id.RVTodayForecast)
 
-        weatherModelArrayList = ArrayList()
+        weatherModelArrayList = ArrayList<WeatherModel>()
         adapter = Adapter(this, weatherModelArrayList)
         weatherRV.adapter = adapter
 
@@ -67,8 +68,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        var location: Location? =
-            locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        var location: Location? = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
 
         if (location != null) {
             CityName = getCityName(location.longitude, location.latitude)
@@ -78,6 +78,9 @@ class MainActivity : AppCompatActivity() {
 
         IVSearch.setOnClickListener {
             var city: String = TECityLocation.text.toString()
+
+            loaddata.visibility = View.VISIBLE
+            homedata.visibility = View.GONE
 
             if (city.isEmpty()) {
                 Toast.makeText(this, "Please Enter City Name", Toast.LENGTH_SHORT).show()
@@ -98,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         if (requestCode == PERMISSION_CODE) {
-            if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Permission Granted", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Permission Denied", Toast.LENGTH_SHORT).show()
@@ -111,18 +114,21 @@ class MainActivity : AppCompatActivity() {
         fun getCityName(longitude: Double, latitude: Double): String {
             var cityName: String = "Not Found"
             var gcd: Geocoder = Geocoder(baseContext, Locale.getDefault())
+            Log.d("Latitude","$latitude")
+            Log.d("longitude","$longitude")
 
             try {
-                var address: List<Address> = gcd.getFromLocation(latitude, longitude, 10)
+                var address: List<Address> = gcd.getFromLocation(latitude, longitude, 1)
 
-                for (adr: Address in address) {
+                for (adr in address) {
                     if (adr != null) {
                         val city = adr.locality
+                        Log.d("City","$city")
                         if (city != null && !city.equals("")) {
                             cityName = city
                         } else {
                             Log.d("Location", "City Not Found")
-                            Toast.makeText(this, "City Not Found", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "User City Not Found", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -141,29 +147,47 @@ class MainActivity : AppCompatActivity() {
             val Queue = Volley.newRequestQueue(this)
 
             val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, url, null,
-                Response.Listener { response ->
+                { response ->
                     loaddata.visibility = View.GONE
                     homedata.visibility = View.VISIBLE
                     weatherModelArrayList.clear()
 
-                    val temperature = response.getJSONObject("current").getString("temp_c")
+                    try{
+                        val temperature = response.getJSONObject("current").getString("temp_c")
 
-                    TVTemperature.text = temperature.plus("°C")
+                        TVTemperature.text = temperature.plus("°C")
 
-                    val isDay = response.getJSONObject("current").getInt("is_day")
-                    val conditionText = response.getJSONObject("current").getJSONObject("condition").getString("text")
-                    val conditionIcon = response.getJSONObject("current").getJSONObject("condition").getString("icon")
-                    Picasso.get()
-                        .load("http://".plus(conditionIcon))
-                        .into(IVTemperature_Image)
+                        val isDay = response.getJSONObject("current").getInt("is_day")
+                        val conditionText = response.getJSONObject("current").getJSONObject("condition").getString("text")
+                        val conditionIcon = response.getJSONObject("current").getJSONObject("condition").getString("icon")
+                        Picasso.get()
+                            .load("http://".plus(conditionIcon))
+                            .into(IVTemperature_Image)
 
-                    TVCondition.text = conditionText
+                        TVCondition.text = conditionText
 
+                        val forecastObj = response.getJSONObject("forecast")
+                        val forecastDay0 = forecastObj.getJSONArray("forecastday").getJSONObject(0)
+                        val hourArray = forecastDay0.getJSONArray("hour")
 
+                        for (i in 0 until hourArray.length()){
+                            var hourObj = hourArray.getJSONObject(i)
+                            var time = hourObj.getString("time")
+                            var temp = hourObj.getString("temp_c")
+                            var forecastIcon = hourObj.getJSONObject("condition").getString("icon")
+                            var windSpeed = hourObj.getString("wind_kph")
+                            weatherModelArrayList.add(WeatherModel(time,temp,forecastIcon,windSpeed))
+                        }
 
+                        adapter.notifyDataSetChanged()
+                    }
+
+                    catch (e: Exception){
+                        e.printStackTrace()
+                    }
 
                 },
-                Response.ErrorListener { error ->
+                { error ->
                     Toast.makeText(this,"Please Enter Valid City Name",Toast.LENGTH_SHORT).show()
                 }
             );
